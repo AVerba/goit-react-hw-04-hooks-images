@@ -1,0 +1,1 @@
+export { ImageGalleryItem } from './ImageGalleryItem';
