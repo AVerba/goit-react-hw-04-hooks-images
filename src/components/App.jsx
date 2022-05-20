@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { Searchbar } from './Searchbar';
 import { ImageGallery } from './ImageGallery';
 import ImageLoader from './ui/Loader/Loader';
@@ -8,6 +9,7 @@ import { Notify } from 'notiflix';
 import { ButtonLoad } from './ui/Button';
 import imagesAPI from '../services/serviceApi';
 import { Modal } from './Modal';
+import { useAfterInitEffect } from '../hooks/useAfterInitEffect';
 
 const Status = {
   IDLE: 'idle',
@@ -16,43 +18,39 @@ const Status = {
   REJECTED: 'rejected',
 };
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    status: Status.IDLE,
-    images: [],
-    currentPage: 1,
-    error: null,
-    showModal: false,
-    modalImageUrl: '',
-    totalImages: 0,
-  };
+export const App = () => {
+  const [searchQuery, setSetSearchQuery] = useState('');
+  const [status, setStatus] = useState(Status.IDLE);
+  const [images, setImages] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [largeImageURL, setLargeImageURL] = useState('');
+  const [totalImages, setTotalImages] = useState(0);
+  const [tags, setTags] = useState('');
 
-  componentDidUpdate(prevProps, prevState) {
-    const prevQuery = prevState.searchQuery;
-    const newQuery = this.state.searchQuery;
-    const prevPage = prevState.currentPage;
-    const newPage = this.state.currentPage;
-
-    if (newQuery !== prevQuery) {
-      this.setState({
-        images: [],
-        totalImages: 0,
-        currentPage: 1,
-        error: null,
-        showModal: false,
-        largeImageURL: '',
-        tags: '',
-        status: Status.PENDING,
-      });
-      return this.fetchImages(newQuery, this.state.currentPage);
+  useEffect(() => {
+    if (searchQuery != '') {
+      setImages([]);
+      setTotalImages(0);
+      setCurrentPage(1);
+      setError(null);
+      setStatus(Status.PENDING);
+      setShowModal(false);
+      setLargeImageURL('');
+      setTags('');
+      fetchImages(searchQuery, currentPage);
     }
-    if (newPage !== prevPage && newPage !== 1) {
-      return this.fetchImages(newQuery, this.state.currentPage);
-    }
-  }
+    return;
+  }, [searchQuery]);
 
-  fetchImages(query, page) {
+  useEffect(() => {
+    if (searchQuery != '') {
+      fetchImages(searchQuery, currentPage);
+    }
+  }, [currentPage]);
+
+  const fetchImages = (query, page) => {
     imagesAPI
       .fetchImages(query, page)
       .then(({ hits, totalHits }) => {
@@ -64,81 +62,67 @@ export class App extends Component {
             largeImageURL,
           })
         );
-        this.setState(prevState => ({
-          images: [...prevState.images, ...composedImages],
-          status: Status.RESOLVED,
-          totalImages: totalHits,
-        }));
+        setImages([...images, ...composedImages]);
+        setStatus(Status.RESOLVED);
+        setTotalImages(totalHits);
       })
-      .catch(error => this.setState({ error, status: Status.REJECTED }));
-  }
-
-  formSubmitHandler = searchQuery => {
-    this.setState({ searchQuery });
-  };
-  pageHandler = () => {
-    this.setState(prevState => ({
-      currentPage: prevState.currentPage + 1,
-    }));
-  };
-  toggleModal = (largeImageURL = null, tags = '') => {
-    this.setState(prevState => ({
-      showModal: !prevState.showModal,
-      largeImageURL,
-      tags,
-    }));
+      .catch(error => {
+        setError(error);
+        setStatus(Status.REJECTED);
+      });
   };
 
-  render() {
-    const {
-      images,
-      totalImages,
-      error,
-      status,
-      showModal,
-      largeImageURL,
-      tags,
-    } = this.state;
-    return (
-      <div>
-        <Searchbar onSubmit={this.formSubmitHandler} />
-        {showModal && (
-          <Modal
-            largeImageURL={largeImageURL}
-            onCloseModal={this.toggleModal}
-            tags={tags}
+  const formSubmitHandler = searchQuery => {
+    setSetSearchQuery(searchQuery);
+  };
+  const pageHandler = () => {
+    setCurrentPage(currentPage + 1);
+  };
+  const toggleModal = (largeImageURL = null, tags = '') => {
+    setShowModal(prevState => !prevState);
+    setLargeImageURL(largeImageURL);
+    setTags(tags);
+  };
+
+  return (
+    <div>
+      <Searchbar onSubmit={formSubmitHandler} />
+      {showModal && (
+        <Modal
+          largeImageURL={largeImageURL}
+          onCloseModal={toggleModal}
+          tags={tags}
+        />
+      )}
+      {status === 'idle' ? (
+        <Title
+          className={styles.galaryTitle}
+          title="No search results yet. Please enter a request"
+        />
+      ) : null}
+      {status === 'pending' ? <ImageLoader /> : null}
+      {status === 'rejected' ? Notify.warning(`${error.message}`) : null}
+      {status === 'resolved' ? (
+        <>
+          <ImageGallery
+            images={images}
+            showModal={showModal}
+            toggleModal={toggleModal}
           />
-        )}
-        {status === 'idle' ? (
-          <Title
-            className={styles.galaryTitle}
-            title="No search results yet. Please enter a request"
-          />
-        ) : null}
-        {status === 'pending' ? <ImageLoader /> : null}
-        {status === 'rejected' ? Notify.warning(`${error.message}`) : null}
-        {status === 'resolved' ? (
-          <>
-            <ImageGallery
-              images={this.state.images}
-              showModal={this.state.showModal}
-              toggleModal={this.toggleModal}
+          {images.length < totalImages ? (
+            <ButtonLoad
+              className={styles.btnLoad}
+              title="Load more"
+              onClick={pageHandler}
             />
-            {images.length < totalImages ? (
-              <ButtonLoad
-                className={styles.btnLoad}
-                title="Load more"
-                onClick={this.pageHandler}
-              />
-            ) : (
-              <Title
-                className={styles.galaryTitle}
-                title="no more images from request"
-              />
-            )}
-          </>
-        ) : null}
-      </div>
-    );
-  }
-}
+          ) : (
+            <Title
+              className={styles.galaryTitle}
+              title="no more images from request"
+            />
+          )}
+        </>
+      ) : null}
+    </div>
+  );
+};
