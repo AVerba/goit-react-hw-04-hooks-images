@@ -30,25 +30,10 @@ export const App = () => {
   const [tags, setTags] = useState('');
 
   useEffect(() => {
-    if (searchQuery != '') {
-      setImages([]);
-      setTotalImages(0);
-      setCurrentPage(1);
-      setError(null);
-      setStatus(Status.PENDING);
-      setShowModal(false);
-      setLargeImageURL('');
-      setTags('');
+    if (searchQuery) {
       fetchImages(searchQuery, currentPage);
     }
-    return;
-  }, [searchQuery]);
-
-  useEffect(() => {
-    if (searchQuery != '') {
-      fetchImages(searchQuery, currentPage);
-    }
-  }, [currentPage]);
+  }, [searchQuery, currentPage]);
 
   const fetchImages = (query, page) => {
     imagesAPI
@@ -62,7 +47,7 @@ export const App = () => {
             largeImageURL,
           })
         );
-        setImages([...images, ...composedImages]);
+        setImages(images => [...images, ...composedImages]);
         setStatus(Status.RESOLVED);
         setTotalImages(totalHits);
       })
@@ -73,6 +58,11 @@ export const App = () => {
   };
 
   const formSubmitHandler = searchQuery => {
+    setImages([]);
+    setTotalImages(0);
+    setCurrentPage(1);
+    setLargeImageURL('');
+    setTags('');
     setSetSearchQuery(searchQuery);
   };
   const pageHandler = () => {

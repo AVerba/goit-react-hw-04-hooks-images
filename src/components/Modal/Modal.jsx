@@ -4,20 +4,25 @@ import styles from './Modal.module.css';
 
 export const Modal = ({ largeImageURL, tags, onCloseModal }) => {
   useEffect(() => {
+    const pressCloseHandler = event => {
+      if (event.code === 'Escape') {
+        onCloseModal();
+      }
+    };
     window.addEventListener('keydown', pressCloseHandler);
     return () => {
       window.removeEventListener('keydown', pressCloseHandler);
     };
-  });
+  }, [onCloseModal]);
 
-  const pressCloseHandler = event => {
-    if (event.code === 'Escape' || event.currentTarget === event.target) {
+  const backdropCloseModal = event => {
+    if (event.currentTarget === event.target) {
       onCloseModal();
     }
   };
 
   return (
-    <div className={styles.overlay} onClick={pressCloseHandler}>
+    <div className={styles.overlay} onClick={backdropCloseModal}>
       <div className={styles.modal}>
         <img src={largeImageURL} alt={tags} />
       </div>
